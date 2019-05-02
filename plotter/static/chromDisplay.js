@@ -1,4 +1,4 @@
-// We assume another script defines e.g.
+ // We assume another script defines e.g.
 //     <script type="text/javascript">
 // var profiles = new profilePlot(rowList);
 //     </script>
@@ -119,11 +119,11 @@ var ANNOTATIONS = {
     },
     "breakpoints": {
         "colors": {
-            "1breakpoint": "#ff7d7d",
-            "0breakpoints": '#f6f4bf',
-            //	    ">0breakpoints":"#a445ee",
+            "Q-peak": "#ff7d7d",
+            "R-peak": '#f6f4bf',
+            	    "S-peak":"#a445ee",
         },
-        "order": ["1breakpoint", "0breakpoints"],
+        "order": ["R-peak", "Q-peak", "S-peak"],
     },
 };
 //shortcuts

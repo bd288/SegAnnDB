@@ -34,7 +34,10 @@ setup(name='plotter',
           "static":["*"],
       },
       zip_safe=False,
-      install_requires=requires,
+      install_requires=[
+          'pyramid_chameleon',
+          'pyramid',
+      ],
       tests_require=requires,
       test_suite="plotter",
       entry_points="""\

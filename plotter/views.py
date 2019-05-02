@@ -105,8 +105,9 @@ def delete_profile(request):
 
 
 @view_config(route_name="secret")
-@check_export
+#@check_export
 def secret(request):
+    #pdb.set_trace()
     fn = db.secret_file("%(name)s%(suffix)s" % request.matchdict)
     return FileResponse(fn, request=request)
 
@@ -120,6 +121,7 @@ def secret_new(request):
     """
     # fn = db.secret_file("%(name)s%(suffix)s" % request.matchdict)
     # return FileResponse(fn, request=request)
+    #pdb.set_trace()
     profileName = request.matchdict["profile_name"]
     chr_num = request.matchdict["chr_num"]
     file_name = "%(name)s%(suffix)s" % request.matchdict
@@ -191,6 +193,7 @@ def read_header(line):
 
 def check_max(pos, txt, ch, chrom_lengths):
     """Raise ValueError if pos > chrom_lengths[ch]."""
+    #pdb.set_trace()
     if ch in chrom_lengths:
         max_bases = chrom_lengths[ch]
         if int(pos) > max_bases:
@@ -208,11 +211,13 @@ def read_probes(lines, chrom_lengths):
     # check each line for the correct format.
     chroms = {}
     for line in lines:
+        #pdb.set_trace()
         match = db.LINE_REGEX.match(line.strip())
         if not match:
             raise ValueError("line\n%sdoes not match '%s'" % (
                 line, db.LINE_PATTERN))
         ch, chromStart, chromEnd, logratio = match.groups()
+        ch = ch.replace("chr", "") #-----
         check_max(chromStart, "chromStart", ch, chrom_lengths)
         check_max(chromEnd, "chromEnd", ch, chrom_lengths)
         tup = (int(chromStart), float(logratio))
@@ -221,9 +226,13 @@ def read_probes(lines, chrom_lengths):
     # only store data for chrom for which we have the length, if there
     # are at least 2 probes.
     chrom_meta = {}
+    #pdb.set_trace()
     for ch in chroms.keys():
+        #pdb.set_trace()
         probeList = chroms.pop(ch)
-        if len(probeList) > 1 and ch in chrom_lengths:
+        if ch not in chrom_lengths:
+            raise ValueError("the set of keys in chrom_lengths does not include the key ch")
+        elif len(probeList) > 1 and ch in chrom_lengths:
             probeList.sort(key=lambda tup: tup[0])  # position, logratio
             chromStart = numpy.array([
                 pos for pos, lr in probeList], numpy.int32)
@@ -270,38 +279,40 @@ def add_region(request):
         "annotation": md["annotation"],
         }
     # first calculate error of this region.
-    if md["trackType"] == "breakpoints":
-        models = db.Models(md["name"], md["chr"]).get()
-        breaks = numpy.array([
-            ((reg["min"] < m["breaks"]) & (m["breaks"] < reg["max"])).sum()
-            for m in models
-            ])
-        error = breaks != TARGET_BREAKS[reg["annotation"]]
-        reg["error"] = error.astype(int)
+    ###if md["trackType"] == "breakpoints":
+     #   models = db.Models(md["name"], md["chr"]).get()
+     #   breaks = numpy.array([
+     #       ((reg["min"] < m["breaks"]) & (m["breaks"] < reg["max"])).sum()
+     #       for m in models
+     #       ])
+     #   error = breaks != TARGET_BREAKS[reg["annotation"]]
+     #   reg["error"] = error.astype(int)
     added, after = regions.add(reg)
     # then add to the total error.
     result = {}
-    if md["trackType"] == "breakpoints":
-        evec = db.ModelError(userid, md["name"], md["chr"])
-        err_added, err_after = evec.add(reg["error"])
-        chroms = update_model(models,
-                              err_after,
-                              after,
-                              md["name"],
-                              md["chr"],
-                              userid)
-    else:
-        res = db.DisplayedProfile(userid, md["name"])
-        chroms = res.add(added, md["chr"])
+    #if md["trackType"] == "breakpoints":
+    #    evec = db.ModelError(userid, md["name"], md["chr"])
+    #    err_added, err_after = evec.add(reg["error"])
+    #    chroms = update_model(models,
+    #                          err_after,
+    #                          after,
+    #                          md["name"],
+    #                          md["chr"],
+    #                          userid)
+    #else:
+    res = db.DisplayedProfile(userid, md["name"])
+    chroms = res.add(added, md["chr"])
     # do not send numpy error.
     if "error" in added:
         added.pop("error")
     result["updates"] = [{
         "profile_id": md["name"],
         "chromosome": ch,
-        "update": model,
-        } for ch, model in chroms.iteritems()]
+    #    "update": model,
+        } for ch in chroms.iteritems()]
+                         #, models in chroms.iteritems()]
     result["region"] = added
+    #return {}
     return result
 
 
@@ -316,23 +327,24 @@ def delete_region(request):
     regions = table(userid, md["name"], md["chr"])
     removed, after = regions.remove(int(request.matchdict["id"]))
     result = {}
-    if md["trackType"] == "breakpoints":
-        evec = db.ModelError(userid, md["name"], md["chr"])
-        err_removed, err_after = evec.remove(removed["error"])
-        chroms = update_model(db.Models(md["name"], md["chr"]).get(),
-                              err_after,
-                              after,
-                              md["name"],
-                              md["chr"],
-                              userid)
-    else:
-        res = db.DisplayedProfile(userid, md["name"])
-        chroms = res.remove(removed, md["chr"])
+   # if md["trackType"] == "breakpoints":
+   #     evec = db.ModelError(userid, md["name"], md["chr"])
+   #     err_removed, err_after = evec.remove(removed["error"])
+   #     chroms = update_model(db.Models(md["name"], md["chr"]).get(),
+   #                           err_after,
+   #                           after,
+   #                           md["name"],
+   #                           md["chr"],
+  #                            userid)
+  #  else:
+    res = db.DisplayedProfile(userid, md["name"])
+    chroms = res.remove(removed, md["chr"])
     result["updates"] = [{
         "profile_id": md["name"],
         "chromosome": ch,
-        "update": model,
-        } for ch, model in chroms.iteritems()]
+    #    "update": model,
+        } for ch in chroms.iteritems()]
+                         #, model in chroms.iteritems()]
     return result
 
 
@@ -480,9 +492,9 @@ def initial(request):
                 m = prof[ch]  # contains breaks, copy number calls.
                 m["breakpoints_regions"] = db.Breakpoints(
                     userid, name, ch).json()
-                for b in m["breakpoints_regions"]:
+        #        for b in m["breakpoints_regions"]:
                     # do not send numpy error.
-                    b.pop("error")
+         #           b.pop("error")
                 m["copies_regions"] = db.Copies(userid, name, ch).json()
                 result_list.append({
                     "chromosome": ch,

@@ -8,6 +8,7 @@ import numpy
 import math
 import atexit
 import time
+import pdb
 # third party module not by me:
 import bsddb3
 # modules by me created specifically for this project:
@@ -31,7 +32,7 @@ HEADER_TUPS = [
     ("name", "[-a-zA-Z0-9]+"),
     ("type", "bedGraph"),
     ("maxSegments", "[0-9]+"),
-    ("db", "hg1[789]"),
+    ("db", "chr1|hg1[789]"),
     ]
 HEADER_PATTERNS = dict(HEADER_TUPS)
 NAME_REGEX = re.compile(HEADER_PATTERNS["name"])
@@ -44,7 +45,7 @@ HEADER_REGEXES = {}
 for var, regex in TO_COMPILE:
     HEADER_REGEXES[var] = (regex, re.compile(regex))
 LINE_PATTERNS = [
-    "chr(?P<chromosome>[0-9XY]+)",
+    "(?P<chromosome>[a-z]+[0-9XY]+[a-z]?)",
     "(?P<chromStart>[0-9]+)",
     "(?P<chromEnd>[0-9]+)",
     # the regexp that we use for validating the logratio column is
@@ -56,20 +57,18 @@ LINE_PATTERNS = [
 COLUMN_SEP = r'\s+'
 LINE_PATTERN = "^%s$" % COLUMN_SEP.join(LINE_PATTERNS)
 LINE_REGEX = re.compile(LINE_PATTERN)
-FILE_PREFIX = "/var/www"
-#FILE_PREFIX = "."
+#FILE_PREFIX = "/var/www"
+FILE_PREFIX = "."
 SECRET_DIR = os.path.join(FILE_PREFIX, "secret")
 DB_HOME = os.path.join(FILE_PREFIX, "db")
 CHROMLENGTH_DIR = os.path.join(FILE_PREFIX, "chromlength")
-
-
 def secret_file(fn, ch = None):
     if ch is None:
         ch = ""
     m = NAME_REGEX.match(fn)
     name = fn[:m.end()]
     dirname = os.path.join(SECRET_DIR, name, ch)
-    # print dirname
+    print dirname
     if not os.path.isdir(dirname):
         os.mkdir(dirname)
     return os.path.join(dirname, fn)
@@ -86,6 +85,7 @@ def scatterplot_file(name, ch, suffix, lr_min, lr_max, width, lengths=None):
     width - width in px
     length - base pairs
     """
+    #pdb.set_trace()
     fn = "%s_chr%s_%s.png" % (name, ch, suffix)
     #print "making %s" % fn
     info = ChromProbes(name, ch).get()
@@ -390,7 +390,7 @@ class ChromLengths(Resource):
     CHROM_RANK = dict(zip(CHROM_ORDER, enumerate(CHROM_ORDER)))
     keys = ("db", )
     u = "http://hgdownload.soe.ucsc.edu/goldenPath/%s/database/chromInfo.txt.gz"
-
+    
     def make_details(self):
         s = self.values[0]
         local = os.path.join(CHROMLENGTH_DIR, s+".txt.gz")
@@ -403,13 +403,19 @@ class ChromLengths(Resource):
         # print "reading %s" % local
         f = gzip.open(local)
         r = csv.reader(f, delimiter="\t")
-        chroms = dict([
-            (ch.replace("chr", ""), int(last))
-            for ch, last, ignore in r
+        try:
+           # pdb.set_trace()
+            #raise ValueError('HiThere')
+            chroms = dict([
+                (ch.replace("chr", ""), int(last))
+                for ch, last in r
             ])
+        except ValueError:
+            raise ValueError("Each line of chromlength file should have two tab-delimited fields: chr, last, ignore")
         return dict([
             (ch, chroms[ch])
             for ch in self.CHROM_ORDER
+            if ch in chroms
             ])
 
 
@@ -463,6 +469,7 @@ def get_intervals(cost):
     implies that z(L)=k for any L_min < L < L_max.
 
     """
+    #pdb.set_trace()
     max_segments = len(cost)
     cost = numpy.array(cost)
     if numpy.isnan(cost.sum()):
@@ -777,9 +784,11 @@ class Profile(Resource):
         # print "total_bases- ", total_bases
 
         for ch in pinfo["chrom_meta"]:
+            #pdb.set_trace()
             probes = ChromProbes(pinfo["name"], ch).get()
             # print "ChromProbes: ", probes
             kmax = min(len(probes["logratio"]), pinfo["maxSegments"])
+            print kmax
             segmat = PrunedDP(probes["logratio"], kmax)
             models = [
                 get_model(probes, segmat[k, :k])
@@ -950,7 +959,7 @@ class UserModel(Resource):
                     train[(pro, ch)] = (features, tint)
         ts.put(train)
         # Don't even try to learn unless there is at least 2 training
-        # examples.
+        # e,xamples.
         if len(train) <= 1:
             return
         # Convert to arrays for optimization.
@@ -1019,6 +1028,7 @@ def chrom_model(models, error, regions, profile, ch, user,
     """Calculate a model that is consistent with regions.
 
     Used for add/remove breakpoint region and initial DisplayedProfile."""
+    #pdb.set_trace()
     optimal_err = error.min()
     if optimal_err == 0:
         is_min = (error == 0).nonzero()[0]
